@@ -56,7 +56,7 @@ case msg of
     KeyboardExtraMsg keyMsg ->
         let
             newKeysDown =
-                Keyboard.Extra.Update keyMsg model.keysDown
+                Keyboard.Extra.update keyMsg model.keysDown
         in
             -- If you want to react to key-presses, call a function here instead
             -- of just updating the model (you should still update the model).
