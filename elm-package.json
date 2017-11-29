@@ -1,6 +1,6 @@
 {
     "version": "2.1.0",
-    "summary": "Convenience helpers for working with Keyboard",
+    "summary": "Work with keyboard events and keep track of recent keys.",
     "repository": "https://github.com/amilner42/keyboard-extra.git",
     "license": "BSD3",
     "source-directories": [
