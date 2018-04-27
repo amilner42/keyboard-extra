@@ -1,39 +1,44 @@
 module Keyboard.Extra
     exposing
-        ( subscriptions
-        , update
-        , init
-        , isPressed
-        , Key(..)
+        ( Key(..)
         , Model
         , Msg(..)
-        , toCode
         , fromCode
-        , isOneKeyPressed
-        , isTwoKeysPressed
-        , isThreeKeysPressed
+        , getHotkeyAction
+        , init
+        , isPressed
+        , subscriptions
+        , toCode
+        , update
         )
 
 {-| Convenience helpers for working with keyboard inputs.
 
+
 # Helpers
-@docs isPressed, isOneKeyPressed, isTwoKeysPressed, isThreeKeysPressed
+
+@docs isPressed, getHotkeyAction
+
 
 # Wiring
+
 @docs Model, Msg, subscriptions, init, update
 
+
 # Keyboard keys
+
 @docs Key
 
+
 # Low level
+
 @docs fromCode, toCode
+
 -}
 
-import Keyboard exposing (KeyCode)
 import Dict exposing (Dict)
+import Keyboard exposing (KeyCode)
 import Set exposing (Set)
-import Json.Encode as Encode
-import Json.Decode as Decode
 
 
 {-| The message type `Keyboard.Extra` uses.
@@ -53,22 +58,20 @@ subscriptions =
         ]
 
 
-{-| A list containing the current keys down, will only contain the last
-3 characters if more than 3 are down at the same time. New keys are appended
-to the front of the list, so the most recent key the user pressed will be first.
-Additionally, to make sure all keys do get removed (for they keys that didn't
-get removed on the `onKeyUp`), when removing elements from the list we switch
-them with `Nothing`, that way keys always do get pushed off the end of the list.
+{-| The set of keys currently pressed.
+
+@WARNING Due to javascript "ghost keys" this may not always be exactly what keys are pressed.
+
 -}
 type alias Model =
-    List (Maybe KeyCode)
+    Set KeyCode
 
 
 {-| Use this to initialize the component.
 -}
 init : Model
 init =
-    []
+    Set.empty
 
 
 {-| You need to call this to have the component update.
@@ -77,60 +80,64 @@ update : Msg -> Model -> Model
 update msg model =
     case msg of
         Down code ->
-            if List.member (Just code) model then
-                model
-            else
-                List.take 3 <| (Just code) :: model
+            Set.insert code model
 
         Up code ->
-            List.map
-                (\itemCode ->
-                    if itemCode == (Just code) then
-                        Nothing
-                    else
-                        itemCode
-                )
-                model
+            Set.remove code model
 
 
 {-| Returns the number of currently pressed keys.
+
+@WARNING Due to javascript "ghost keys" this may not always be exactly the correct number of keys pressed.
+
 -}
 numberOfPressedKeys : Model -> Int
 numberOfPressedKeys =
-    List.length << List.filter ((/=) Nothing)
+    Set.size
 
 
 {-| Check the pressed down state of any `Key`.
+
+@WARNING Due to javascript "ghost keys" this can return incorrect information.
+
 -}
 isPressed : Key -> Model -> Bool
-isPressed key model =
-    List.member (Just <| toCode key) model
+isPressed =
+    toCode >> Set.member
 
 
-{-| Checks if just one key is pressed.
+{-| Pass in a list of hotkeys and some action and receive an action back if one of the hotkeys was triggered.
+
+Only 1 hotkey can be triggered at once and it will give priority to bigger hotkeys, so if shift and tab
+are pressed and there are hotkeys for tab and for shift-tab it will trigger the shift-tab hotkey. This will not demand
+that exactly those keys are pressed to try to avoid javascript bugs with "ghost keys", so if "a" and "b" are pressed and
+a hotkey exists for just "a" it will be triggered (unless a better hotkey match exists, in this case a hotkey for
+both "a" and "b").
+
+This is meant to be the main interface to handle hotkeys with this library.
+
 -}
-isOneKeyPressed : Key -> Model -> Bool
-isOneKeyPressed key model =
-    (numberOfPressedKeys model == 1) && (isPressed key model)
+getHotkeyAction : List ( List Key, action ) -> Model -> Maybe action
+getHotkeyAction hotkeys model =
+    let
+        hotkeyMatches =
+            List.all (\key -> isPressed key model)
 
+        -- To prevent re-sorting keys on recursive calls.
+        go sortedHotkeys =
+            case sortedHotkeys of
+                ( hotkey, action ) :: rest ->
+                    if hotkeyMatches hotkey then
+                        Just action
+                    else
+                        go rest
 
-{-| Checks if just two keys are pressed.
--}
-isTwoKeysPressed : Key -> Key -> Model -> Bool
-isTwoKeysPressed key1 key2 model =
-    (numberOfPressedKeys model == 2)
-        && (isPressed key1 model)
-        && (isPressed key2 model)
-
-
-{-| Checks if just three keys are pressed.
--}
-isThreeKeysPressed : Key -> Key -> Key -> Model -> Bool
-isThreeKeysPressed key1 key2 key3 model =
-    (numberOfPressedKeys model == 3)
-        && (isPressed key1 model)
-        && (isPressed key2 model)
-        && (isPressed key3 model)
+                [] ->
+                    Nothing
+    in
+    hotkeys
+        |> List.sortBy (Tuple.first >> List.length >> Basics.negate)
+        |> go
 
 
 {-| Convert a key code into a `Key`.
@@ -147,7 +154,7 @@ fromCode code =
 toCode : Key -> KeyCode
 toCode key =
     codeBook
-        |> List.filter (((==) key) << Tuple.second)
+        |> List.filter ((==) key << Tuple.second)
         |> List.map Tuple.first
         |> List.head
         |> Maybe.withDefault 0

@@ -1,5 +1,5 @@
 {
-    "version": "2.1.0",
+    "version": "3.0.0",
     "summary": "Work with keyboard events and keep track of recent keys.",
     "repository": "https://github.com/amilner42/keyboard-extra.git",
     "license": "BSD3",
