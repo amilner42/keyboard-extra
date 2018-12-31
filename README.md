@@ -2,6 +2,9 @@
 
 Forked from: https://github.com/ohanhi/keyboard-extra.
 
+NOTE: I haven't upgraded this to Elm 0.19, I don't intend on doing this either, I'm not sure I want to keep this
+library alive.
+
 ### Description
 
 A very lightweight library to create hotkeys for apps. Not intended for games.
